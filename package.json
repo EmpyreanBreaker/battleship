@@ -1,0 +1,40 @@
+{
+  "name": "battleship",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "babel.config.js",
+  "scripts": {
+    "build": "webpack --config webpack.prod.js",
+    "bundle": "webpack --config webpack.common.js",
+    "check-format": "prettier . --write",
+    "dev": "webpack serve --config webpack.dev.js",
+    "format": "prettier . --write",
+    "start": "webpack serve --open --config webpack.dev.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EmpyreanBreaker/battleship.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/EmpyreanBreaker/battleship/issues"
+  },
+  "homepage": "https://github.com/EmpyreanBreaker/battleship#readme",
+  "devDependencies": {
+    "@babel/preset-env": "^7.29.7",
+    "css-loader": "^7.1.4",
+    "html-loader": "^5.1.0",
+    "html-webpack-plugin": "^5.6.7",
+    "jest": "^30.4.2",
+    "prettier": "^3.8.3",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.107.2",
+    "webpack-cli": "^7.0.3",
+    "webpack-dev-server": "^5.2.4",
+    "webpack-merge": "^6.0.1"
+  }
+}
