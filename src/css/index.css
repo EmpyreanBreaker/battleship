@@ -74,6 +74,36 @@ button {
   letter-spacing: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mode-control {
+  display: flex;
+  padding: 3px;
+  border: 1px solid #46545a;
+  border-radius: 4px;
+  background: #151f24;
+}
+
+.mode-option {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #8e9ca2;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.mode-option.is-active {
+  background: #34464f;
+  color: #f4f8f7;
+}
+
 .restart-button {
   min-height: 40px;
   padding: 0 16px;
@@ -91,10 +121,12 @@ button {
 
 .restart-button:focus-visible,
 .board-cell:focus-visible,
+.mode-option:focus-visible,
 .ship-option:focus-visible,
 .orientation-option:focus-visible,
 .secondary-action:focus-visible,
-.confirm-action:focus-visible {
+.confirm-action:focus-visible,
+.turn-action:focus-visible {
   outline: 3px solid #f2c66d;
   outline-offset: 2px;
 }
@@ -130,6 +162,22 @@ button {
   box-shadow: 0 0 0 5px rgba(120, 174, 232, 0.13);
 }
 
+.turn-handoff {
+  background: #9aa8ae;
+  box-shadow: 0 0 0 5px rgba(154, 168, 174, 0.13);
+}
+
+.turn-turn-result {
+  background: #d4a85a;
+  box-shadow: 0 0 0 5px rgba(212, 168, 90, 0.13);
+}
+
+.turn-finished {
+  background: #6fd3c6;
+  box-shadow: 0 0 0 5px rgba(111, 211, 198, 0.13);
+  animation: none;
+}
+
 .status-title,
 .status-detail {
   margin: 0;
@@ -145,6 +193,22 @@ button {
   margin-top: 3px;
   color: #9aa8ae;
   font-size: 0.82rem;
+}
+
+.turn-action {
+  min-height: 38px;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 1px solid #d4a85a;
+  border-radius: 4px;
+  background: #46371e;
+  color: #fff0ce;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.turn-action:hover {
+  background: #5b4725;
 }
 
 .placement-panel {
@@ -253,6 +317,33 @@ button {
 .confirm-action:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.handoff-panel {
+  width: min(520px, 100%);
+  margin: 48px auto 0;
+  padding: 34px 24px;
+  border-top: 1px solid #536168;
+  border-bottom: 1px solid #536168;
+  text-align: center;
+}
+
+.handoff-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.handoff-detail {
+  margin: 10px 0 22px;
+  color: #9aa8ae;
+  font-size: 0.9rem;
+}
+
+.handoff-action {
+  min-width: 140px;
 }
 
 .boards {
@@ -399,6 +490,15 @@ button.board-cell:disabled {
   .placement-panel {
     gap: 12px;
   }
+
+  .game-header {
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    align-items: flex-end;
+    flex-direction: column-reverse;
+  }
 }
 
 @media (max-width: 420px) {
@@ -414,6 +514,11 @@ button.board-cell:disabled {
     min-height: 36px;
     padding: 0 12px;
     font-size: 0.82rem;
+  }
+
+  .mode-option {
+    padding: 0 8px;
+    font-size: 0.7rem;
   }
 
   .board-grid {

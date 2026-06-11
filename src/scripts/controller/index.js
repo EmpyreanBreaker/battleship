@@ -42,6 +42,7 @@ ui.onPlacementActions({
     const confirmed = game.confirmPlacement();
 
     ui.setPlacementFeedback(confirmed ? "" : "Deploy every ship first");
+    if (confirmed) ui.resetPlacementControls();
     render();
   },
   randomize: () => {
@@ -52,15 +53,42 @@ ui.onPlacementActions({
 });
 
 ui.onEnemyAttack((x, y) => {
-  const result = game.attackComputer(x, y);
+  const result = game.attackOpponent(x, y);
 
   if (result === null) return;
 
   render();
 
-  if (game.getState().turn === "computer") {
+  if (
+    game.getState().mode === "computer" &&
+    game.getState().activePlayerType === "computer"
+  ) {
     runComputerTurn();
   }
+});
+
+ui.onEndTurn(() => {
+  game.endTurn();
+  render();
+});
+
+ui.onHandoffContinue(() => {
+  game.continueHandoff();
+
+  if (game.getState().phase === "placement") {
+    ui.resetPlacementControls();
+  }
+
+  render();
+});
+
+ui.onModeChange((mode) => {
+  if (mode === game.getState().mode) return;
+
+  clearComputerTurn();
+  game.start(mode);
+  ui.resetPlacementControls();
+  render();
 });
 
 ui.onRestart(() => {

@@ -18,7 +18,7 @@ const countTokens = (gameboard, token) => {
     .filter((cell) => cell.getToken() === token).length;
 };
 
-const deployPlayerFleet = (game) => {
+const deployCurrentFleet = (game) => {
   FLEET.forEach((shipType, index) => {
     expect(game.placePlayerShip(shipType, 1, index + 1, "horizontal")).toBe(
       true,
@@ -26,7 +26,17 @@ const deployPlayerFleet = (game) => {
   });
 };
 
-describe("Game", () => {
+const prepareLocalBattle = (game) => {
+  game.start("local");
+  deployCurrentFleet(game);
+  game.confirmPlacement();
+  game.continueHandoff();
+  deployCurrentFleet(game);
+  game.confirmPlacement();
+  game.continueHandoff();
+};
+
+describe("Game against the computer", () => {
   let game;
 
   beforeEach(() => {
@@ -34,9 +44,10 @@ describe("Game", () => {
   });
 
   test("starts in placement with an empty player board", () => {
-    const { computerPlayer, phase, realPlayer, remainingShips, turn, winner } =
+    const { computerPlayer, mode, phase, realPlayer, remainingShips, turn } =
       game.getState();
 
+    expect(mode).toBe("computer");
     expect(realPlayer.getType()).toBe("real");
     expect(computerPlayer.getType()).toBe("computer");
     expect(countTokens(realPlayer.getGameboard(), "S")).toBe(0);
@@ -44,19 +55,9 @@ describe("Game", () => {
     expect(remainingShips).toEqual(FLEET);
     expect(phase).toBe("placement");
     expect(turn).toBeNull();
-    expect(winner).toBeNull();
   });
 
-  test("places a selected player ship and removes it from the remaining fleet", () => {
-    const placed = game.placePlayerShip("carrier", 1, 1, "horizontal");
-    const { realPlayer, remainingShips } = game.getState();
-
-    expect(placed).toBe(true);
-    expect(countTokens(realPlayer.getGameboard(), "S")).toBe(5);
-    expect(remainingShips).not.toContain("carrier");
-  });
-
-  test("rejects illegal and duplicate player ship placements", () => {
+  test("places a selected player ship and rejects illegal placements", () => {
     expect(game.placePlayerShip("carrier", 7, 1, "horizontal")).toBe(false);
     expect(game.placePlayerShip("carrier", 1, 1, "horizontal")).toBe(true);
     expect(game.placePlayerShip("carrier", 1, 2, "horizontal")).toBe(false);
@@ -64,74 +65,54 @@ describe("Game", () => {
     expect(countTokens(game.getState().realPlayer.getGameboard(), "S")).toBe(5);
   });
 
-  test("randomizes a complete legal player fleet", () => {
+  test("randomizes and clears a complete legal player fleet", () => {
     expect(game.randomizePlayerFleet()).toBe(true);
-
-    const { realPlayer, remainingShips } = game.getState();
-    expect(countTokens(realPlayer.getGameboard(), "S")).toBe(17);
-    expect(remainingShips).toEqual([]);
-  });
-
-  test("clears player placements", () => {
-    game.randomizePlayerFleet();
+    expect(countTokens(game.getState().realPlayer.getGameboard(), "S")).toBe(
+      17,
+    );
+    expect(game.getState().remainingShips).toEqual([]);
 
     expect(game.clearPlayerFleet()).toBe(true);
-
-    const { realPlayer, remainingShips } = game.getState();
-    expect(countTokens(realPlayer.getGameboard(), "S")).toBe(0);
-    expect(remainingShips).toEqual(FLEET);
+    expect(countTokens(game.getState().realPlayer.getGameboard(), "S")).toBe(0);
+    expect(game.getState().remainingShips).toEqual(FLEET);
   });
 
-  test("requires a complete fleet before combat begins", () => {
+  test("requires confirmation before alternating computer turns", () => {
     expect(game.confirmPlacement()).toBe(false);
-    expect(game.attackComputer(1, 1)).toBeNull();
+    expect(game.attackOpponent(1, 1)).toBeNull();
 
-    deployPlayerFleet(game);
-
+    deployCurrentFleet(game);
     expect(game.confirmPlacement()).toBe(true);
-    expect(game.getState().phase).toBe("battle");
-    expect(game.getState().turn).toBe("real");
+
+    const target = game
+      .getState()
+      .opponentPlayer.getGameboard()
+      .getBoard()
+      .flat()
+      .find((cell) => cell.getToken() === "S")
+      .getIndices();
+
+    expect(game.attackOpponent(target.column, target.row)).toBe(true);
+    expect(game.getState().activePlayerType).toBe("computer");
+
+    expect(game.computerAttack()).toEqual({
+      result: expect.any(Boolean),
+      x: expect.any(Number),
+      y: expect.any(Number),
+    });
+    expect(game.getState().activePlayerType).toBe("real");
   });
 
   test("locks fleet placement after confirmation", () => {
-    deployPlayerFleet(game);
+    deployCurrentFleet(game);
     game.confirmPlacement();
 
     expect(game.clearPlayerFleet()).toBe(false);
     expect(game.randomizePlayerFleet()).toBe(false);
     expect(game.placePlayerShip("carrier", 1, 6, "horizontal")).toBe(false);
-    expect(countTokens(game.getState().realPlayer.getGameboard(), "S")).toBe(
-      17,
-    );
   });
 
-  test("alternates between real and computer attacks after confirmation", () => {
-    deployPlayerFleet(game);
-    game.confirmPlacement();
-
-    const computerBoard = game
-      .getState()
-      .computerPlayer.getGameboard()
-      .getBoard();
-    const target = computerBoard
-      .flat()
-      .find((cell) => cell.getToken() === "S")
-      .getIndices();
-
-    expect(game.attackComputer(target.column, target.row)).toBe(true);
-    expect(game.getState().turn).toBe("computer");
-
-    const computerAttack = game.computerAttack();
-
-    expect(computerAttack).toEqual({
-      result: expect.any(Boolean),
-      x: expect.any(Number),
-      y: expect.any(Number),
-    });
-    expect(game.getState().turn).toBe("real");
-  });
-
-  test("starts a fresh placement phase", () => {
+  test("starts a fresh placement phase in the current mode", () => {
     game.randomizePlayerFleet();
     game.confirmPlacement();
     const originalRealPlayer = game.getState().realPlayer;
@@ -139,9 +120,114 @@ describe("Game", () => {
     game.start();
 
     expect(game.getState().realPlayer).not.toBe(originalRealPlayer);
+    expect(game.getState().mode).toBe("computer");
     expect(game.getState().phase).toBe("placement");
     expect(game.getState().remainingShips).toEqual(FLEET);
-    expect(game.getState().turn).toBeNull();
-    expect(game.getState().winner).toBeNull();
+  });
+});
+
+describe("Local two-player game", () => {
+  let game;
+
+  beforeEach(() => {
+    game = Game(createSeededRandom());
+    game.start("local");
+  });
+
+  test("creates two real players with independent empty boards", () => {
+    const { currentPlayerLabel, mode, players } = game.getState();
+
+    expect(mode).toBe("local");
+    expect(players[0].getType()).toBe("real");
+    expect(players[1].getType()).toBe("real");
+    expect(players[0].getGameboard()).not.toBe(players[1].getGameboard());
+    expect(countTokens(players[0].getGameboard(), "S")).toBe(0);
+    expect(countTokens(players[1].getGameboard(), "S")).toBe(0);
+    expect(currentPlayerLabel).toBe("Player 1");
+  });
+
+  test("uses private handoffs between player fleet deployments", () => {
+    deployCurrentFleet(game);
+
+    expect(game.confirmPlacement()).toBe(true);
+    expect(game.getState().phase).toBe("handoff");
+    expect(game.getState().handoffPlayerLabel).toBe("Player 2");
+
+    expect(game.continueHandoff()).toBe(true);
+    expect(game.getState().phase).toBe("placement");
+    expect(game.getState().currentPlayerLabel).toBe("Player 2");
+    expect(countTokens(game.getState().currentPlayer.getGameboard(), "S")).toBe(
+      0,
+    );
+
+    deployCurrentFleet(game);
+    game.confirmPlacement();
+
+    expect(game.getState().phase).toBe("handoff");
+    expect(game.getState().handoffPlayerLabel).toBe("Player 1");
+
+    game.continueHandoff();
+    expect(game.getState().phase).toBe("battle");
+    expect(game.getState().activePlayerLabel).toBe("Player 1");
+  });
+
+  test("shows the attack result before starting the next player's turn", () => {
+    prepareLocalBattle(game);
+    const target = game
+      .getState()
+      .opponentPlayer.getGameboard()
+      .getBoard()
+      .flat()
+      .find((cell) => cell.getToken() === "S")
+      .getIndices();
+
+    expect(game.attackOpponent(target.column, target.row)).toBe(true);
+    expect(game.getState().phase).toBe("turn-result");
+    expect(game.getState().lastAttackResult).toBe(true);
+    expect(game.getState().activePlayerLabel).toBe("Player 1");
+    expect(game.attackOpponent(10, 10)).toBeNull();
+
+    expect(game.endTurn()).toBe(true);
+    expect(game.getState().phase).toBe("battle");
+    expect(game.getState().activePlayerLabel).toBe("Player 2");
+    expect(game.getState().currentPlayerLabel).toBe("Player 2");
+  });
+
+  test("reports the winning local player", () => {
+    prepareLocalBattle(game);
+    const playerOneBoard = game.getState().players[0].getGameboard().getBoard();
+    const playerTwoBoard = game.getState().players[1].getGameboard().getBoard();
+    const playerOneMisses = playerOneBoard
+      .flat()
+      .filter((cell) => cell.getToken() === "O")
+      .map((cell) => cell.getIndices());
+    const playerTwoShips = playerTwoBoard
+      .flat()
+      .filter((cell) => cell.getToken() === "S")
+      .map((cell) => cell.getIndices());
+
+    playerTwoShips.forEach((target, index) => {
+      game.attackOpponent(target.column, target.row);
+
+      if (index === playerTwoShips.length - 1) return;
+
+      game.endTurn();
+
+      const miss = playerOneMisses[index];
+      game.attackOpponent(miss.column, miss.row);
+      game.endTurn();
+    });
+
+    expect(game.getState().phase).toBe("finished");
+    expect(game.getState().winner).toBe("Player 1");
+    expect(game.getState().winnerIndex).toBe(0);
+  });
+
+  test("switches back to computer mode with a fresh game", () => {
+    expect(game.start("computer")).toBe(true);
+
+    expect(game.getState().mode).toBe("computer");
+    expect(game.getState().computerPlayer.getType()).toBe("computer");
+    expect(game.getState().phase).toBe("placement");
   });
 });

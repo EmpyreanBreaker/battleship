@@ -1,6 +1,7 @@
 import { Player } from "../models/player.js";
 
 const FLEET = ["carrier", "battleship", "cruiser", "submarine", "destroyer"];
+const GAME_MODES = ["computer", "local"];
 const BOARD_SIZE = 10;
 
 const randomInteger = (maximum, random) => {
@@ -53,114 +54,244 @@ const createAttackPool = (random) => {
 };
 
 const Game = (random = Math.random) => {
-  let realPlayer;
-  let computerPlayer;
+  let mode = "computer";
+  let players;
   let phase;
-  let turn;
-  let winner;
+  let placementPlayerIndex;
+  let activePlayerIndex;
+  let winnerIndex;
   let computerAttacks;
-  let remainingShips;
+  let remainingShipsByPlayer;
+  let handoffPlayerIndex;
+  let handoffNextPhase;
+  let lastAttackResult;
 
-  const start = () => {
-    realPlayer = Player("real");
-    computerPlayer = Player("computer");
+  const getPlayerLabel = (index) => {
+    if (mode === "computer") return index === 0 ? "You" : "Computer";
+
+    return `Player ${index + 1}`;
+  };
+
+  const getViewerIndex = () => {
+    if (mode === "computer") return 0;
+    if (phase === "placement") return placementPlayerIndex;
+    if (phase === "handoff") return handoffPlayerIndex;
+
+    return activePlayerIndex;
+  };
+
+  const prepareHandoff = (playerIndex, nextPhase) => {
+    handoffPlayerIndex = playerIndex;
+    handoffNextPhase = nextPhase;
+    phase = "handoff";
+  };
+
+  const start = (nextMode = mode) => {
+    if (!GAME_MODES.includes(nextMode)) return false;
+
+    mode = nextMode;
+    players = [
+      Player("real"),
+      Player(mode === "computer" ? "computer" : "real"),
+    ];
     phase = "placement";
-    turn = null;
-    winner = null;
+    placementPlayerIndex = 0;
+    activePlayerIndex = 0;
+    winnerIndex = null;
     computerAttacks = createAttackPool(random);
-    remainingShips = [...FLEET];
+    remainingShipsByPlayer = [
+      [...FLEET],
+      mode === "computer" ? [] : [...FLEET],
+    ];
+    handoffPlayerIndex = null;
+    handoffNextPhase = null;
+    lastAttackResult = null;
 
-    placeFleet(computerPlayer.getGameboard(), random);
+    if (mode === "computer") {
+      placeFleet(players[1].getGameboard(), random);
+    }
+
+    return true;
   };
 
   const placePlayerShip = (shipType, x, y, orientation) => {
+    const remainingShips = remainingShipsByPlayer[placementPlayerIndex];
+
     if (phase !== "placement" || !remainingShips.includes(shipType)) {
       return false;
     }
 
-    const placedShip = realPlayer
+    const placedShip = players[placementPlayerIndex]
       .getGameboard()
       .placeShip(shipType, x, y, orientation);
 
     if (!placedShip) return false;
 
-    remainingShips = remainingShips.filter((type) => type !== shipType);
+    remainingShipsByPlayer[placementPlayerIndex] = remainingShips.filter(
+      (type) => type !== shipType,
+    );
     return true;
   };
 
   const clearPlayerFleet = () => {
     if (phase !== "placement") return false;
 
-    realPlayer.getGameboard().reset();
-    remainingShips = [...FLEET];
+    players[placementPlayerIndex].getGameboard().reset();
+    remainingShipsByPlayer[placementPlayerIndex] = [...FLEET];
     return true;
   };
 
   const randomizePlayerFleet = () => {
     if (!clearPlayerFleet()) return false;
 
-    placeFleet(realPlayer.getGameboard(), random);
-    remainingShips = [];
+    placeFleet(players[placementPlayerIndex].getGameboard(), random);
+    remainingShipsByPlayer[placementPlayerIndex] = [];
     return true;
   };
 
   const confirmPlacement = () => {
-    if (phase !== "placement" || remainingShips.length > 0) return false;
+    if (
+      phase !== "placement" ||
+      remainingShipsByPlayer[placementPlayerIndex].length > 0
+    ) {
+      return false;
+    }
 
-    phase = "battle";
-    turn = "real";
+    if (mode === "computer") {
+      phase = "battle";
+      activePlayerIndex = 0;
+      return true;
+    }
+
+    if (placementPlayerIndex === 0) {
+      placementPlayerIndex = 1;
+      prepareHandoff(1, "placement");
+    } else {
+      activePlayerIndex = 0;
+      prepareHandoff(0, "battle");
+    }
+
     return true;
   };
 
-  const attackComputer = (x, y) => {
-    if (phase !== "battle" || turn !== "real" || winner) return null;
+  const continueHandoff = () => {
+    if (phase !== "handoff") return false;
 
-    const result = computerPlayer.getGameboard().receiveAttack(x, y);
+    activePlayerIndex = handoffPlayerIndex;
+    phase = handoffNextPhase;
+    handoffPlayerIndex = null;
+    handoffNextPhase = null;
+    lastAttackResult = null;
+    return true;
+  };
+
+  const attackOpponent = (x, y) => {
+    if (
+      phase !== "battle" ||
+      players[activePlayerIndex].getType() !== "real" ||
+      winnerIndex !== null
+    ) {
+      return null;
+    }
+
+    const opponentIndex = activePlayerIndex === 0 ? 1 : 0;
+    const result = players[opponentIndex].getGameboard().receiveAttack(x, y);
 
     if (result === null) return null;
 
-    if (computerPlayer.getGameboard().allShipsSunk()) {
-      winner = "real";
+    lastAttackResult = result;
+
+    if (players[opponentIndex].getGameboard().allShipsSunk()) {
+      winnerIndex = activePlayerIndex;
+      phase = "finished";
+    } else if (mode === "local") {
+      handoffPlayerIndex = opponentIndex;
+      phase = "turn-result";
     } else {
-      turn = "computer";
+      activePlayerIndex = 1;
     }
 
     return result;
   };
 
+  const endTurn = () => {
+    if (mode !== "local" || phase !== "turn-result") return false;
+
+    activePlayerIndex = handoffPlayerIndex;
+    handoffPlayerIndex = null;
+    lastAttackResult = null;
+    phase = "battle";
+    return true;
+  };
+
   const computerAttack = () => {
-    if (phase !== "battle" || turn !== "computer" || winner) return null;
+    if (
+      mode !== "computer" ||
+      phase !== "battle" ||
+      players[activePlayerIndex].getType() !== "computer" ||
+      winnerIndex !== null
+    ) {
+      return null;
+    }
 
     const coordinates = computerAttacks.pop();
-    const result = realPlayer
+    const result = players[0]
       .getGameboard()
       .receiveAttack(coordinates.x, coordinates.y);
 
-    if (realPlayer.getGameboard().allShipsSunk()) {
-      winner = "computer";
+    lastAttackResult = result;
+
+    if (players[0].getGameboard().allShipsSunk()) {
+      winnerIndex = 1;
+      phase = "finished";
     } else {
-      turn = "real";
+      activePlayerIndex = 0;
     }
 
     return { ...coordinates, result };
   };
 
-  const getState = () => ({
-    computerPlayer,
-    phase,
-    realPlayer,
-    remainingShips: [...remainingShips],
-    turn,
-    winner,
-  });
+  const getState = () => {
+    const viewerIndex = getViewerIndex();
+    const opponentIndex = viewerIndex === 0 ? 1 : 0;
+    const winner = winnerIndex === null ? null : getPlayerLabel(winnerIndex);
+
+    return {
+      activePlayerIndex,
+      activePlayerLabel: getPlayerLabel(activePlayerIndex),
+      activePlayerType: players[activePlayerIndex].getType(),
+      computerPlayer: mode === "computer" ? players[1] : null,
+      currentPlayer: players[viewerIndex],
+      currentPlayerIndex: viewerIndex,
+      currentPlayerLabel: getPlayerLabel(viewerIndex),
+      handoffPlayerLabel:
+        handoffPlayerIndex === null ? null : getPlayerLabel(handoffPlayerIndex),
+      lastAttackResult,
+      mode,
+      opponentPlayer: players[opponentIndex],
+      opponentPlayerLabel: getPlayerLabel(opponentIndex),
+      phase,
+      players: [...players],
+      realPlayer: players[0],
+      remainingShips:
+        phase === "placement"
+          ? [...remainingShipsByPlayer[placementPlayerIndex]]
+          : [],
+      turn: phase === "battle" ? players[activePlayerIndex].getType() : null,
+      winner,
+      winnerIndex,
+    };
+  };
 
   start();
 
   return {
-    attackComputer,
+    attackOpponent,
     clearPlayerFleet,
     computerAttack,
     confirmPlacement,
+    continueHandoff,
+    endTurn,
     getState,
     placePlayerShip,
     randomizePlayerFleet,

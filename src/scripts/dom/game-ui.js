@@ -35,6 +35,19 @@ const createBoardShell = (title, boardName) => {
   return { grid, heading, section };
 };
 
+const createModeControl = () => {
+  const control = createElement("div", "mode-control");
+  const computerButton = createButton("mode-option is-active", "Vs computer");
+  const localButton = createButton("mode-option", "Two players");
+
+  control.setAttribute("aria-label", "Game mode");
+  computerButton.dataset.mode = "computer";
+  localButton.dataset.mode = "local";
+  control.append(computerButton, localButton);
+
+  return { buttons: [computerButton, localButton], control };
+};
+
 const createPlacementControls = () => {
   const panel = createElement("section", "placement-panel");
   const shipSelector = createElement("div", "ship-selector");
@@ -74,6 +87,21 @@ const createPlacementControls = () => {
     shipButtons,
     verticalButton,
   };
+};
+
+const createHandoffPanel = () => {
+  const panel = createElement("section", "handoff-panel");
+  const title = createElement("h2", "handoff-title");
+  const detail = createElement(
+    "p",
+    "handoff-detail",
+    "Keep each fleet private before continuing.",
+  );
+  const button = createButton("confirm-action handoff-action", "Continue");
+
+  panel.append(title, detail, button);
+
+  return { button, panel, title };
 };
 
 const getCellLabel = (cell, token, hideShips) => {
@@ -155,23 +183,45 @@ const getStatus = (state, selectedShip, placementFeedback) => {
     const ship = SHIPS.find(({ type }) => type === selectedShip);
     return {
       detail: `${ship.label} · ${ship.length} cells`,
-      title: "Fleet deployment",
+      title: `${state.currentPlayerLabel} deployment`,
     };
   }
 
-  if (state.winner === "real") {
-    return { detail: "Enemy fleet destroyed", title: "Victory" };
+  if (state.phase === "handoff") {
+    return {
+      detail: "Both fleets are hidden",
+      title: `Pass to ${state.handoffPlayerLabel}`,
+    };
   }
 
-  if (state.winner === "computer") {
-    return { detail: "Your fleet has been destroyed", title: "Defeat" };
+  if (state.phase === "finished") {
+    if (state.mode === "computer") {
+      return state.winnerIndex === 0
+        ? { detail: "Enemy fleet destroyed", title: "Victory" }
+        : { detail: "Your fleet has been destroyed", title: "Defeat" };
+    }
+
+    return { detail: "Enemy fleet destroyed", title: `${state.winner} wins` };
   }
 
-  if (state.turn === "computer") {
+  if (state.phase === "turn-result") {
+    return {
+      detail: "End the turn to continue",
+      title: state.lastAttackResult ? "Direct hit" : "Shot missed",
+    };
+  }
+
+  if (state.activePlayerType === "computer") {
     return { detail: "Enemy targeting in progress", title: "Computer turn" };
   }
 
-  return { detail: "Targeting systems ready", title: "Your turn" };
+  return {
+    detail: "Targeting systems ready",
+    title:
+      state.mode === "local"
+        ? `${state.activePlayerLabel}'s turn`
+        : "Your turn",
+  };
 };
 
 const renderPlacementControls = (
@@ -210,13 +260,17 @@ const GameUI = (root) => {
   const brand = createElement("div", "brand");
   const brandMark = createElement("span", "brand-mark", "B");
   const brandName = createElement("h1", "brand-name", "Battleship");
+  const headerActions = createElement("div", "header-actions");
+  const modeControl = createModeControl();
   const restartButton = createButton("restart-button", "New game");
   const statusBar = createElement("section", "status-bar");
   const statusCopy = createElement("div", "status-copy");
   const statusTitle = createElement("p", "status-title");
   const statusDetail = createElement("p", "status-detail");
   const turnLight = createElement("span", "turn-light");
+  const endTurnButton = createButton("turn-action", "End turn");
   const placementControls = createPlacementControls();
+  const handoff = createHandoffPanel();
   const boards = createElement("div", "boards");
   const playerBoard = createBoardShell("Your fleet", "player");
   const enemyBoard = createBoardShell("Enemy waters", "enemy");
@@ -229,11 +283,12 @@ const GameUI = (root) => {
   turnLight.setAttribute("aria-hidden", "true");
 
   brand.append(brandMark, brandName);
-  header.append(brand, restartButton);
+  headerActions.append(modeControl.control, restartButton);
+  header.append(brand, headerActions);
   statusCopy.append(statusTitle, statusDetail);
-  statusBar.append(turnLight, statusCopy);
+  statusBar.append(turnLight, statusCopy, endTurnButton);
   boards.append(playerBoard.section, enemyBoard.section);
-  app.append(header, statusBar, placementControls.panel, boards);
+  app.append(header, statusBar, placementControls.panel, handoff.panel, boards);
   root.replaceChildren(app);
 
   const render = (state) => {
@@ -244,20 +299,41 @@ const GameUI = (root) => {
     }
 
     const isPlacement = state.phase === "placement";
+    const isHandoff = state.phase === "handoff";
+    const isTurnResult = state.phase === "turn-result";
     const isEnemyBoardDisabled =
-      isPlacement || state.turn !== "real" || Boolean(state.winner);
+      state.phase !== "battle" || state.activePlayerType !== "real";
     const status = getStatus(state, selectedShip, placementFeedback);
-    const turnState = isPlacement ? "placement" : state.winner || state.turn;
+    const turnState = isPlacement
+      ? "placement"
+      : state.phase === "battle"
+        ? state.activePlayerType
+        : state.phase;
 
     statusTitle.textContent = status.title;
     statusDetail.textContent = status.detail;
     turnLight.className = `turn-light turn-${turnState}`;
     placementControls.panel.hidden = !isPlacement;
+    handoff.panel.hidden = !isHandoff;
+    handoff.title.textContent = `Pass to ${state.handoffPlayerLabel}`;
+    endTurnButton.hidden = !isTurnResult;
+    boards.hidden = isHandoff;
     enemyBoard.section.hidden = isPlacement;
     playerBoard.heading.textContent = isPlacement
-      ? "Deploy your fleet"
-      : "Your fleet";
+      ? `${state.currentPlayerLabel}: deploy your fleet`
+      : state.mode === "computer"
+        ? "Your fleet"
+        : `${state.currentPlayerLabel} fleet`;
+    enemyBoard.heading.textContent =
+      state.mode === "computer"
+        ? "Enemy waters"
+        : `${state.opponentPlayerLabel} waters`;
     boards.classList.toggle("is-placement", isPlacement);
+    modeControl.buttons.forEach((button) => {
+      const isActive = button.dataset.mode === state.mode;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
 
     if (isPlacement) {
       renderPlacementControls(
@@ -268,14 +344,19 @@ const GameUI = (root) => {
       );
     }
 
-    renderBoard(playerBoard.grid, state.realPlayer.getGameboard(), {
-      interactive: isPlacement && Boolean(selectedShip),
-    });
-    renderBoard(enemyBoard.grid, state.computerPlayer.getGameboard(), {
-      disabled: isEnemyBoardDisabled,
-      hideShips: !state.winner,
-      interactive: true,
-    });
+    if (isHandoff) {
+      playerBoard.grid.replaceChildren();
+      enemyBoard.grid.replaceChildren();
+    } else {
+      renderBoard(playerBoard.grid, state.currentPlayer.getGameboard(), {
+        interactive: isPlacement && Boolean(selectedShip),
+      });
+      renderBoard(enemyBoard.grid, state.opponentPlayer.getGameboard(), {
+        disabled: isEnemyBoardDisabled,
+        hideShips: state.phase !== "finished",
+        interactive: !isPlacement,
+      });
+    }
   };
 
   const setPlacementFeedback = (message = "") => {
@@ -338,12 +419,29 @@ const GameUI = (root) => {
     placementControls.randomizeButton.addEventListener("click", randomize);
   };
 
+  const onModeChange = (handler) => {
+    modeControl.buttons.forEach((button) => {
+      button.addEventListener("click", () => handler(button.dataset.mode));
+    });
+  };
+
+  const onHandoffContinue = (handler) => {
+    handoff.button.addEventListener("click", handler);
+  };
+
+  const onEndTurn = (handler) => {
+    endTurnButton.addEventListener("click", handler);
+  };
+
   const onRestart = (handler) => {
     restartButton.addEventListener("click", handler);
   };
 
   return {
+    onEndTurn,
     onEnemyAttack,
+    onHandoffContinue,
+    onModeChange,
     onPlacementActions,
     onPlayerPlacement,
     onRestart,
