@@ -121,6 +121,88 @@ describe("Gameboard", () => {
     expect(board.flat().every((cell) => cell.getToken() === "O")).toBe(true);
   });
 
+  test("sends a hit to the ship occupying the attacked coordinates", () => {
+    const board = gameboard.create();
+    const destroyer = gameboard.placeShip("destroyer", 2, 3, "horizontal");
+
+    expect(gameboard.receiveAttack(2, 3)).toBe(true);
+    expect(destroyer.getData().hits).toBe(1);
+    expect(board[2][1].getToken()).toBe("X");
+  });
+
+  test("sends hits to the correct ship", () => {
+    gameboard.create();
+    const destroyer = gameboard.placeShip("destroyer", 1, 1, "horizontal");
+    const submarine = gameboard.placeShip("submarine", 5, 5, "vertical");
+
+    gameboard.receiveAttack(5, 6);
+
+    expect(destroyer.getData().hits).toBe(0);
+    expect(submarine.getData().hits).toBe(1);
+  });
+
+  test("records a missed attack and marks its cell", () => {
+    const board = gameboard.create();
+
+    expect(gameboard.receiveAttack("C", 4)).toBe(false);
+    expect(board[3][2].getToken()).toBe("M");
+    expect(gameboard.getMissedAttacks()).toEqual([{ row: 4, column: "C" }]);
+  });
+
+  test("does not expose the mutable missed attacks array", () => {
+    gameboard.create();
+    gameboard.receiveAttack(1, 1);
+
+    gameboard.getMissedAttacks().push({ row: 2, column: "B" });
+
+    expect(gameboard.getMissedAttacks()).toEqual([{ row: 1, column: "A" }]);
+  });
+
+  test("rejects repeated attacks without hitting a ship twice", () => {
+    const board = gameboard.create();
+    const destroyer = gameboard.placeShip("destroyer", 1, 1, "horizontal");
+    gameboard.receiveAttack(1, 1);
+
+    expect(gameboard.receiveAttack(1, 1)).toBeNull();
+    expect(destroyer.getData().hits).toBe(1);
+    expect(board[0][0].getToken()).toBe("X");
+  });
+
+  test.each([
+    [0, 1],
+    [1, 0],
+    [11, 1],
+    [1, 11],
+    ["Z", 1],
+  ])("rejects an attack outside the board", (x, y) => {
+    const board = gameboard.create();
+
+    expect(gameboard.receiveAttack(x, y)).toBeNull();
+    expect(board.flat().every((cell) => cell.getToken() === "O")).toBe(true);
+    expect(gameboard.getMissedAttacks()).toEqual([]);
+  });
+
+  test("reports false when no ships are placed", () => {
+    gameboard.create();
+
+    expect(gameboard.allShipsSunk()).toBe(false);
+  });
+
+  test("reports whether all placed ships have sunk", () => {
+    gameboard.create();
+    gameboard.placeShip("destroyer", 1, 1, "horizontal");
+    gameboard.placeShip("submarine", 5, 5, "vertical");
+
+    gameboard.receiveAttack(1, 1);
+    gameboard.receiveAttack(2, 1);
+    expect(gameboard.allShipsSunk()).toBe(false);
+
+    gameboard.receiveAttack(5, 5);
+    gameboard.receiveAttack(5, 6);
+    gameboard.receiveAttack(5, 7);
+    expect(gameboard.allShipsSunk()).toBe(true);
+  });
+
   test("resets the board with fresh cells", () => {
     const originalBoard = gameboard.create();
     originalBoard[0][0].setToken("S");
@@ -133,5 +215,7 @@ describe("Gameboard", () => {
     expect(resetBoard.flat().every((cell) => cell.getToken() === "O")).toBe(
       true,
     );
+    expect(gameboard.getMissedAttacks()).toEqual([]);
+    expect(gameboard.allShipsSunk()).toBe(false);
   });
 });

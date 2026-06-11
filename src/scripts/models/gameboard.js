@@ -36,6 +36,15 @@ const getYIndex = (y) => (Number.isInteger(y) ? y - 1 : -1);
 
 const isIndexOnBoard = (index) => index >= 0 && index < BOARD_SIZE;
 
+const getBoardPosition = (x, y) => {
+  const xIndex = getXIndex(x);
+  const yIndex = getYIndex(y);
+
+  if (!isIndexOnBoard(xIndex) || !isIndexOnBoard(yIndex)) return null;
+
+  return { xIndex, yIndex };
+};
+
 const getPlacementCells = (board, length, xIndex, yIndex, orientation) => {
   return Array.from({ length }, (_, index) => {
     const row = orientation === "vertical" ? yIndex + index : yIndex;
@@ -52,10 +61,14 @@ const areCellsAvailable = (cells) => {
 const Gameboard = () => {
   let gameBoard = [];
   let ships = [];
+  let shipByCell = new Map();
+  let missedAttacks = [];
 
   const create = () => {
     gameBoard = [];
     ships = [];
+    shipByCell = new Map();
+    missedAttacks = [];
 
     for (let row = 1; row <= BOARD_SIZE; row++) {
       const boardRow = [];
@@ -77,18 +90,15 @@ const Gameboard = () => {
   const placeShip = (shipType, x, y, orientation) => {
     const shipLength = SHIP_LENGTHS[normalizeShipType(shipType)];
     const direction = normalizeOrientation(orientation);
-    const xIndex = getXIndex(x);
-    const yIndex = getYIndex(y);
+    const position = getBoardPosition(x, y);
 
-    const isValidStart =
-      gameBoard.length === BOARD_SIZE &&
-      isIndexOnBoard(xIndex) &&
-      isIndexOnBoard(yIndex);
+    const isValidStart = gameBoard.length === BOARD_SIZE && position !== null;
 
     if (!shipLength || !ORIENTATIONS.includes(direction) || !isValidStart) {
       return null;
     }
 
+    const { xIndex, yIndex } = position;
     const cells = getPlacementCells(
       gameBoard,
       shipLength,
@@ -100,17 +110,56 @@ const Gameboard = () => {
     if (!areCellsAvailable(cells)) return null;
 
     const placedShip = Ship(shipLength);
-    cells.forEach((cell) => cell.setToken("S"));
+    cells.forEach((cell) => {
+      cell.setToken("S");
+      shipByCell.set(cell, placedShip);
+    });
     ships.push(placedShip);
 
     return placedShip;
+  };
+
+  const receiveAttack = (x, y) => {
+    const position = getBoardPosition(x, y);
+
+    if (gameBoard.length !== BOARD_SIZE || !position) return null;
+
+    const { xIndex, yIndex } = position;
+    const cell = gameBoard[yIndex][xIndex];
+    const token = cell.getToken();
+
+    if (token === "X" || token === "M") return null;
+
+    if (token === "S") {
+      shipByCell.get(cell).hit();
+      cell.setToken("X");
+      return true;
+    }
+
+    cell.setToken("M");
+    missedAttacks.push(cell.getIndices());
+    return false;
+  };
+
+  const getMissedAttacks = () => [...missedAttacks];
+
+  const allShipsSunk = () => {
+    return ships.length > 0 && ships.every((ship) => ship.isSunk());
   };
 
   const reset = () => {
     return create();
   };
 
-  return { create, getBoard, placeShip, reset };
+  return {
+    allShipsSunk,
+    create,
+    getBoard,
+    getMissedAttacks,
+    placeShip,
+    receiveAttack,
+    reset,
+  };
 };
 
 export { Gameboard };
