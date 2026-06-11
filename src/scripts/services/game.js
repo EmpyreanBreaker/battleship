@@ -55,23 +55,65 @@ const createAttackPool = (random) => {
 const Game = (random = Math.random) => {
   let realPlayer;
   let computerPlayer;
+  let phase;
   let turn;
   let winner;
   let computerAttacks;
+  let remainingShips;
 
   const start = () => {
     realPlayer = Player("real");
     computerPlayer = Player("computer");
-    turn = "real";
+    phase = "placement";
+    turn = null;
     winner = null;
     computerAttacks = createAttackPool(random);
+    remainingShips = [...FLEET];
 
-    placeFleet(realPlayer.getGameboard(), random);
     placeFleet(computerPlayer.getGameboard(), random);
   };
 
+  const placePlayerShip = (shipType, x, y, orientation) => {
+    if (phase !== "placement" || !remainingShips.includes(shipType)) {
+      return false;
+    }
+
+    const placedShip = realPlayer
+      .getGameboard()
+      .placeShip(shipType, x, y, orientation);
+
+    if (!placedShip) return false;
+
+    remainingShips = remainingShips.filter((type) => type !== shipType);
+    return true;
+  };
+
+  const clearPlayerFleet = () => {
+    if (phase !== "placement") return false;
+
+    realPlayer.getGameboard().reset();
+    remainingShips = [...FLEET];
+    return true;
+  };
+
+  const randomizePlayerFleet = () => {
+    if (!clearPlayerFleet()) return false;
+
+    placeFleet(realPlayer.getGameboard(), random);
+    remainingShips = [];
+    return true;
+  };
+
+  const confirmPlacement = () => {
+    if (phase !== "placement" || remainingShips.length > 0) return false;
+
+    phase = "battle";
+    turn = "real";
+    return true;
+  };
+
   const attackComputer = (x, y) => {
-    if (turn !== "real" || winner) return null;
+    if (phase !== "battle" || turn !== "real" || winner) return null;
 
     const result = computerPlayer.getGameboard().receiveAttack(x, y);
 
@@ -87,7 +129,7 @@ const Game = (random = Math.random) => {
   };
 
   const computerAttack = () => {
-    if (turn !== "computer" || winner) return null;
+    if (phase !== "battle" || turn !== "computer" || winner) return null;
 
     const coordinates = computerAttacks.pop();
     const result = realPlayer
@@ -105,14 +147,25 @@ const Game = (random = Math.random) => {
 
   const getState = () => ({
     computerPlayer,
+    phase,
     realPlayer,
+    remainingShips: [...remainingShips],
     turn,
     winner,
   });
 
   start();
 
-  return { attackComputer, computerAttack, getState, start };
+  return {
+    attackComputer,
+    clearPlayerFleet,
+    computerAttack,
+    confirmPlacement,
+    getState,
+    placePlayerShip,
+    randomizePlayerFleet,
+    start,
+  };
 };
 
 export { Game };

@@ -90,7 +90,11 @@ button {
 }
 
 .restart-button:focus-visible,
-.board-cell:focus-visible {
+.board-cell:focus-visible,
+.ship-option:focus-visible,
+.orientation-option:focus-visible,
+.secondary-action:focus-visible,
+.confirm-action:focus-visible {
   outline: 3px solid #f2c66d;
   outline-offset: 2px;
 }
@@ -121,6 +125,11 @@ button {
   box-shadow: 0 0 0 5px rgba(242, 198, 109, 0.13);
 }
 
+.turn-placement {
+  background: #78aee8;
+  box-shadow: 0 0 0 5px rgba(120, 174, 232, 0.13);
+}
+
 .status-title,
 .status-detail {
   margin: 0;
@@ -138,11 +147,124 @@ button {
   font-size: 0.82rem;
 }
 
+.placement-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 16px 0;
+  border-top: 1px solid #354147;
+  border-bottom: 1px solid #354147;
+}
+
+.ship-selector,
+.orientation-control,
+.placement-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ship-selector {
+  flex-wrap: wrap;
+}
+
+.orientation-control {
+  padding: 3px;
+  border: 1px solid #46545a;
+  border-radius: 4px;
+  background: #151f24;
+}
+
+.ship-option,
+.orientation-option,
+.secondary-action,
+.confirm-action {
+  min-height: 36px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ship-option {
+  padding: 0 11px;
+  border: 1px solid #46545a;
+  background: #1b272c;
+  color: #cbd5d7;
+  font-size: 0.78rem;
+}
+
+.ship-option:hover:not(:disabled),
+.ship-option.is-active {
+  border-color: #78aee8;
+  background: #203446;
+  color: #e8f4ff;
+}
+
+.ship-option:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.orientation-option {
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: #8e9ca2;
+  font-size: 0.78rem;
+}
+
+.orientation-option.is-active {
+  background: #34464f;
+  color: #f4f8f7;
+}
+
+.placement-actions {
+  justify-content: flex-end;
+}
+
+.secondary-action,
+.confirm-action {
+  padding: 0 13px;
+}
+
+.secondary-action {
+  border: 1px solid #58666d;
+  background: transparent;
+  color: #c7d1d3;
+}
+
+.secondary-action:hover:not(:disabled) {
+  border-color: #9aa8ae;
+  background: #1c282d;
+}
+
+.confirm-action {
+  border: 1px solid #6fd3c6;
+  background: #1a4744;
+  color: #dffcf6;
+  font-weight: 700;
+}
+
+.confirm-action:hover:not(:disabled) {
+  background: #215a55;
+}
+
+.secondary-action:disabled,
+.confirm-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .boards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(28px, 5vw, 64px);
   align-items: start;
+}
+
+.boards.is-placement {
+  grid-template-columns: minmax(0, 560px);
+  justify-content: center;
 }
 
 .board-panel {
@@ -191,6 +313,10 @@ button {
 
 button.board-cell {
   cursor: crosshair;
+}
+
+.boards.is-placement button.board-cell {
+  cursor: pointer;
 }
 
 button.board-cell:not(:disabled):hover {
@@ -245,6 +371,16 @@ button.board-cell:disabled {
   }
 }
 
+@media (max-width: 900px) {
+  .placement-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .placement-actions {
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 760px) {
   .game {
     padding-top: 18px;
@@ -258,6 +394,10 @@ button.board-cell:disabled {
   .board-panel {
     width: min(100%, 520px);
     margin: 0 auto;
+  }
+
+  .placement-panel {
+    gap: 12px;
   }
 }
 
@@ -284,6 +424,15 @@ button.board-cell:disabled {
 
   .board-title {
     margin-left: 26px;
+  }
+
+  .placement-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .confirm-action {
+    grid-column: 1 / -1;
   }
 }
 
