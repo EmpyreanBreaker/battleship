@@ -56,6 +56,7 @@ const createPlacementControls = () => {
   const shipButtons = SHIPS.map(({ label, length, type }) => {
     const button = createButton("ship-option", `${label} · ${length}`);
     button.dataset.ship = type;
+    button.draggable = true;
     shipSelector.append(button);
     return button;
   });
@@ -235,6 +236,7 @@ const renderPlacementControls = (
     const isSelected = button.dataset.ship === selectedShip;
 
     button.disabled = !isRemaining;
+    button.draggable = isRemaining;
     button.classList.toggle("is-active", isSelected);
     button.setAttribute("aria-pressed", String(isSelected));
   });
@@ -278,6 +280,7 @@ const GameUI = (root) => {
   let selectedShip = "carrier";
   let selectedOrientation = "horizontal";
   let placementFeedback = "";
+  let dropTarget;
 
   statusBar.setAttribute("aria-live", "polite");
   turnLight.setAttribute("aria-hidden", "true");
@@ -369,11 +372,36 @@ const GameUI = (root) => {
     placementFeedback = "";
   };
 
+  const clearDropTarget = () => {
+    dropTarget?.classList.remove("is-drop-target");
+    dropTarget = null;
+    playerBoard.grid.classList.remove("is-drop-active");
+  };
+
   placementControls.shipButtons.forEach((button) => {
     button.addEventListener("click", () => {
       selectedShip = button.dataset.ship;
       placementFeedback = "";
       render(latestState);
+    });
+
+    button.addEventListener("dragstart", (event) => {
+      if (button.disabled) {
+        event.preventDefault();
+        return;
+      }
+
+      selectedShip = button.dataset.ship;
+      placementFeedback = "";
+      button.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", selectedShip);
+      render(latestState);
+    });
+
+    button.addEventListener("dragend", () => {
+      button.classList.remove("is-dragging");
+      clearDropTarget();
     });
   });
 
@@ -397,6 +425,47 @@ const GameUI = (root) => {
       handler({
         orientation: selectedOrientation,
         shipType: selectedShip,
+        x: Number(cell.dataset.x),
+        y: Number(cell.dataset.y),
+      });
+    });
+
+    playerBoard.grid.addEventListener("dragover", (event) => {
+      const cell = event.target.closest(".board-cell");
+
+      if (latestState?.phase !== "placement" || !cell || !selectedShip) {
+        return;
+      }
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      playerBoard.grid.classList.add("is-drop-active");
+
+      if (cell !== dropTarget) {
+        dropTarget?.classList.remove("is-drop-target");
+        dropTarget = cell;
+        dropTarget.classList.add("is-drop-target");
+      }
+    });
+
+    playerBoard.grid.addEventListener("dragleave", (event) => {
+      if (!playerBoard.grid.contains(event.relatedTarget)) {
+        clearDropTarget();
+      }
+    });
+
+    playerBoard.grid.addEventListener("drop", (event) => {
+      const cell = event.target.closest(".board-cell");
+      const shipType = event.dataTransfer.getData("text/plain") || selectedShip;
+
+      if (latestState?.phase !== "placement" || !cell || !shipType) return;
+
+      event.preventDefault();
+      selectedShip = shipType;
+      clearDropTarget();
+      handler({
+        orientation: selectedOrientation,
+        shipType,
         x: Number(cell.dataset.x),
         y: Number(cell.dataset.y),
       });

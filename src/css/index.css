@@ -257,6 +257,15 @@ button {
   font-size: 0.78rem;
 }
 
+.ship-option[draggable="true"] {
+  cursor: grab;
+}
+
+.ship-option.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
 .ship-option:hover:not(:disabled),
 .ship-option.is-active {
   border-color: #78aee8;
@@ -408,6 +417,16 @@ button.board-cell {
 
 .boards.is-placement button.board-cell {
   cursor: pointer;
+}
+
+.board-grid.is-drop-active .board-cell {
+  border-color: #527b9f;
+}
+
+.board-grid.is-drop-active .board-cell.is-drop-target {
+  border-color: #b7dcff;
+  background: #294b66;
+  box-shadow: inset 0 0 0 2px #78aee8;
 }
 
 button.board-cell:not(:disabled):hover {

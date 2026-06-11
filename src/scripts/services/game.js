@@ -53,6 +53,23 @@ const createAttackPool = (random) => {
   return shuffle(coordinates, random);
 };
 
+const getCoordinateKey = ({ x, y }) => `${x},${y}`;
+
+const getAdjacentCoordinates = ({ x, y }) => {
+  return [
+    { x: x - 1, y },
+    { x: x + 1, y },
+    { x, y: y - 1 },
+    { x, y: y + 1 },
+  ].filter(
+    (coordinates) =>
+      coordinates.x >= 1 &&
+      coordinates.x <= BOARD_SIZE &&
+      coordinates.y >= 1 &&
+      coordinates.y <= BOARD_SIZE,
+  );
+};
+
 const Game = (random = Math.random) => {
   let mode = "computer";
   let players;
@@ -61,6 +78,8 @@ const Game = (random = Math.random) => {
   let activePlayerIndex;
   let winnerIndex;
   let computerAttacks;
+  let computerTargets;
+  let computerAttackedCoordinates;
   let remainingShipsByPlayer;
   let handoffPlayerIndex;
   let handoffNextPhase;
@@ -99,6 +118,8 @@ const Game = (random = Math.random) => {
     activePlayerIndex = 0;
     winnerIndex = null;
     computerAttacks = createAttackPool(random);
+    computerTargets = [];
+    computerAttackedCoordinates = new Set();
     remainingShipsByPlayer = [
       [...FLEET],
       mode === "computer" ? [] : [...FLEET],
@@ -224,6 +245,36 @@ const Game = (random = Math.random) => {
     return true;
   };
 
+  const getNextComputerTarget = () => {
+    const targetPools = [computerTargets, computerAttacks];
+
+    for (const targets of targetPools) {
+      while (targets.length > 0) {
+        const target =
+          targets === computerTargets ? targets.shift() : targets.pop();
+
+        if (!computerAttackedCoordinates.has(getCoordinateKey(target))) {
+          return target;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const queueAdjacentTargets = (coordinates) => {
+    const queuedTargets = new Set(computerTargets.map(getCoordinateKey));
+
+    getAdjacentCoordinates(coordinates).forEach((target) => {
+      const key = getCoordinateKey(target);
+
+      if (!computerAttackedCoordinates.has(key) && !queuedTargets.has(key)) {
+        computerTargets.push(target);
+        queuedTargets.add(key);
+      }
+    });
+  };
+
   const computerAttack = () => {
     if (
       mode !== "computer" ||
@@ -234,12 +285,18 @@ const Game = (random = Math.random) => {
       return null;
     }
 
-    const coordinates = computerAttacks.pop();
+    const coordinates = getNextComputerTarget();
+
+    if (!coordinates) return null;
+
+    computerAttackedCoordinates.add(getCoordinateKey(coordinates));
     const result = players[0]
       .getGameboard()
       .receiveAttack(coordinates.x, coordinates.y);
 
     lastAttackResult = result;
+
+    if (result) queueAdjacentTargets(coordinates);
 
     if (players[0].getGameboard().allShipsSunk()) {
       winnerIndex = 1;

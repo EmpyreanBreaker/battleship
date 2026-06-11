@@ -18,6 +18,14 @@ const countTokens = (gameboard, token) => {
     .filter((cell) => cell.getToken() === token).length;
 };
 
+const getCoordinatesWithToken = (gameboard, token) => {
+  return gameboard
+    .getBoard()
+    .flat()
+    .filter((cell) => cell.getToken() === token)
+    .map((cell) => cell.getIndices());
+};
+
 const deployCurrentFleet = (game) => {
   FLEET.forEach((shipType, index) => {
     expect(game.placePlayerShip(shipType, 1, index + 1, "horizontal")).toBe(
@@ -101,6 +109,95 @@ describe("Game against the computer", () => {
       y: expect.any(Number),
     });
     expect(game.getState().activePlayerType).toBe("real");
+  });
+
+  test("targets an adjacent coordinate after hitting a ship", () => {
+    game = Game(createSeededRandom(1));
+    deployCurrentFleet(game);
+    game.confirmPlacement();
+
+    const computerBoard = game
+      .getState()
+      .opponentPlayer.getGameboard()
+      .getBoard();
+    const playerTarget = computerBoard
+      .flat()
+      .find((cell) => cell.getToken() === "O")
+      .getIndices();
+
+    game.attackOpponent(playerTarget.column, playerTarget.row);
+    const firstAttack = game.computerAttack();
+
+    expect(firstAttack).toEqual({ result: true, x: 1, y: 1 });
+
+    game.attackOpponent(10, 10);
+    const adjacentAttack = game.computerAttack();
+    const distance =
+      Math.abs(adjacentAttack.x - firstAttack.x) +
+      Math.abs(adjacentAttack.y - firstAttack.y);
+
+    expect(distance).toBe(1);
+    expect(adjacentAttack).toEqual({ result: true, x: 2, y: 1 });
+  });
+
+  test("plays through a complete game until the real player wins", () => {
+    deployCurrentFleet(game);
+    game.confirmPlacement();
+    const enemyShipCoordinates = getCoordinatesWithToken(
+      game.getState().opponentPlayer.getGameboard(),
+      "S",
+    );
+
+    enemyShipCoordinates.forEach((target, index) => {
+      expect(game.attackOpponent(target.column, target.row)).toBe(true);
+
+      if (index === enemyShipCoordinates.length - 1) return;
+
+      expect(game.getState().activePlayerType).toBe("computer");
+      expect(game.computerAttack()).toEqual({
+        result: expect.any(Boolean),
+        x: expect.any(Number),
+        y: expect.any(Number),
+      });
+      expect(game.getState().activePlayerType).toBe("real");
+      expect(game.getState().phase).toBe("battle");
+    });
+
+    expect(game.getState().phase).toBe("finished");
+    expect(game.getState().winner).toBe("You");
+    expect(game.getState().winnerIndex).toBe(0);
+    expect(game.attackOpponent(1, 1)).toBeNull();
+    expect(game.computerAttack()).toBeNull();
+  });
+
+  test("plays through a complete game until the computer wins", () => {
+    deployCurrentFleet(game);
+    game.confirmPlacement();
+    let turns = 0;
+
+    while (game.getState().phase !== "finished" && turns < 100) {
+      const enemyBoard = game.getState().opponentPlayer.getGameboard();
+      const target =
+        getCoordinatesWithToken(enemyBoard, "O")[0] ??
+        getCoordinatesWithToken(enemyBoard, "S")[0];
+
+      expect(target).toBeDefined();
+      expect(game.attackOpponent(target.column, target.row)).not.toBeNull();
+
+      if (game.getState().phase === "finished") break;
+
+      expect(game.computerAttack()).toEqual({
+        result: expect.any(Boolean),
+        x: expect.any(Number),
+        y: expect.any(Number),
+      });
+      turns += 1;
+    }
+
+    expect(turns).toBeLessThan(100);
+    expect(game.getState().phase).toBe("finished");
+    expect(game.getState().winner).toBe("Computer");
+    expect(game.getState().winnerIndex).toBe(1);
   });
 
   test("locks fleet placement after confirmation", () => {
