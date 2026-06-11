@@ -1,4 +1,4 @@
-import { Gameboard } from "./gameboard";
+import { Gameboard } from "./gameboard.js";
 
 const PLAYER_TYPES = ["real", "computer"];
 
