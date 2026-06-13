@@ -1,7 +1,47 @@
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/Barlow-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/Barlow-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/Barlow-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/Barlow-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("../fonts/Barlow-ExtraBold.woff2") format("woff2");
+}
+
 :root {
   color-scheme: dark;
   font-family:
-    Inter,
+    "Barlow",
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -72,9 +112,8 @@ button {
 
 .brand-name {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
   font-size: 1.45rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -195,7 +234,7 @@ button {
 .status-title {
   color: #f8fbfa;
   font-size: 0.95rem;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .status-detail {
@@ -362,9 +401,8 @@ button {
 
 .handoff-title {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
   font-size: 1.7rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -395,9 +433,8 @@ button {
 
 .game-over-title {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(2rem, 6vw, 4.5rem);
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: 0;
 }
 

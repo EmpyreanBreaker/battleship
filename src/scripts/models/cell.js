@@ -1,11 +1,11 @@
 /**
- * A Cell represents one 'square' on the board
- * Cell's keep track of their row and column
- * A Cell's token can have four possibilities
+ * A Cell represents one square on the board.
+ * Cells keep track of their row and column.
+ * A Cell's token can have four possible values:
  * S: Ship token
  * O: Ocean token
  * X: Ship token hit
- * M: Missed hit
+ * M: Missed shot
  */
 const Cell = () => {
   // Holds token values for the game board
@@ -18,19 +18,19 @@ const Cell = () => {
     return { row, column, token };
   };
 
-  // Getter: Return the index values of the cell
+  // Getter: Returns the index values of the cell
   const getIndices = () => ({ row, column });
 
-  //Getter: Return the token value held in the cell
+  // Getter: Returns the token value held in the cell
   const getToken = () => token;
 
-  // Setter: Set the index values of the cell in an object
+  // Setter: Sets the index values of the cell in an object
   const setIndices = (gameRow, gameColumn) => {
     row = gameRow;
     column = gameColumn;
   };
 
-  // Setter: Accept's a token to change the value of the cell
+  // Setter: Accepts a token to change the value of the cell
   const setToken = (gameToken) => (token = gameToken);
 
   // Use closure to interact with local variables

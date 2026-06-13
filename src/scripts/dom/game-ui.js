@@ -283,7 +283,10 @@ const getStatus = (state, selectedShip, placementFeedback) => {
     const ship = SHIPS.find(({ type }) => type === selectedShip);
     return {
       detail: `${ship.label} · ${ship.length} cells`,
-      title: `${state.currentPlayerLabel} deployment`,
+      title:
+        state.mode === "computer"
+          ? "Your deployment"
+          : `${state.currentPlayerLabel}'s deployment`,
     };
   }
 
