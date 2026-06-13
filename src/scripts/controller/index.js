@@ -17,6 +17,10 @@ const clearComputerTurn = () => {
   computerTurnTimer = null;
 };
 
+ui.setPlacementValidator(({ orientation, shipType, x, y }) => {
+  return game.canPlacePlayerShip(shipType, x, y, orientation);
+});
+
 const runComputerTurn = () => {
   computerTurnTimer = window.setTimeout(() => {
     game.computerAttack();
@@ -28,7 +32,11 @@ const runComputerTurn = () => {
 ui.onPlayerPlacement(({ orientation, shipType, x, y }) => {
   const placed = game.placePlayerShip(shipType, x, y, orientation);
 
-  ui.setPlacementFeedback(placed ? "" : "Position blocked or outside the grid");
+  ui.setPlacementFeedback(
+    placed
+      ? ""
+      : "Keep one clear cell around every ship and stay inside the grid",
+  );
   render();
 });
 

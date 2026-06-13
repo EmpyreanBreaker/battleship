@@ -28,7 +28,7 @@ const getCoordinatesWithToken = (gameboard, token) => {
 
 const deployCurrentFleet = (game) => {
   FLEET.forEach((shipType, index) => {
-    expect(game.placePlayerShip(shipType, 1, index + 1, "horizontal")).toBe(
+    expect(game.placePlayerShip(shipType, 1, index * 2 + 1, "horizontal")).toBe(
       true,
     );
   });
@@ -69,6 +69,9 @@ describe("Game against the computer", () => {
     expect(game.placePlayerShip("carrier", 7, 1, "horizontal")).toBe(false);
     expect(game.placePlayerShip("carrier", 1, 1, "horizontal")).toBe(true);
     expect(game.placePlayerShip("carrier", 1, 2, "horizontal")).toBe(false);
+    expect(game.canPlacePlayerShip("battleship", 1, 2, "horizontal")).toBe(
+      false,
+    );
     expect(game.placePlayerShip("battleship", 3, 1, "vertical")).toBe(false);
     expect(countTokens(game.getState().realPlayer.getGameboard(), "S")).toBe(5);
   });
@@ -206,6 +209,7 @@ describe("Game against the computer", () => {
 
     expect(game.clearPlayerFleet()).toBe(false);
     expect(game.randomizePlayerFleet()).toBe(false);
+    expect(game.canPlacePlayerShip("carrier", 1, 6, "horizontal")).toBe(false);
     expect(game.placePlayerShip("carrier", 1, 6, "horizontal")).toBe(false);
   });
 

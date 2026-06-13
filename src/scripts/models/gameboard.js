@@ -54,19 +54,37 @@ const getPlacementCells = (board, length, xIndex, yIndex, orientation) => {
   });
 };
 
-const areCellsAvailable = (cells) => {
-  return cells.every((cell) => cell?.getToken() === "O");
+const hasAdjacentShip = (board, cell) => {
+  const { column, row } = cell.getIndices();
+  const xIndex = COLUMNS.indexOf(column);
+  const yIndex = row - 1;
+
+  for (let y = yIndex - 1; y <= yIndex + 1; y++) {
+    for (let x = xIndex - 1; x <= xIndex + 1; x++) {
+      if (board[y]?.[x]?.getToken() === "S") return true;
+    }
+  }
+
+  return false;
+};
+
+const areCellsAvailable = (board, cells) => {
+  return cells.every(
+    (cell) => cell?.getToken() === "O" && !hasAdjacentShip(board, cell),
+  );
 };
 
 const Gameboard = () => {
   let gameBoard = [];
   let ships = [];
+  let shipPlacements = [];
   let shipByCell = new Map();
   let missedAttacks = [];
 
   const create = () => {
     gameBoard = [];
     ships = [];
+    shipPlacements = [];
     shipByCell = new Map();
     missedAttacks = [];
 
@@ -87,11 +105,11 @@ const Gameboard = () => {
 
   const getBoard = () => gameBoard;
 
-  const placeShip = (shipType, x, y, orientation) => {
-    const shipLength = SHIP_LENGTHS[normalizeShipType(shipType)];
+  const getValidPlacement = (shipType, x, y, orientation) => {
+    const normalizedType = normalizeShipType(shipType);
+    const shipLength = SHIP_LENGTHS[normalizedType];
     const direction = normalizeOrientation(orientation);
     const position = getBoardPosition(x, y);
-
     const isValidStart = gameBoard.length === BOARD_SIZE && position !== null;
 
     if (!shipLength || !ORIENTATIONS.includes(direction) || !isValidStart) {
@@ -107,16 +125,45 @@ const Gameboard = () => {
       direction,
     );
 
-    if (!areCellsAvailable(cells)) return null;
+    if (!areCellsAvailable(gameBoard, cells)) return null;
 
-    const placedShip = Ship(shipLength);
-    cells.forEach((cell) => {
+    return { cells, direction, normalizedType, shipLength };
+  };
+
+  const canPlaceShip = (shipType, x, y, orientation) => {
+    return getValidPlacement(shipType, x, y, orientation) !== null;
+  };
+
+  const placeShip = (shipType, x, y, orientation) => {
+    const placement = getValidPlacement(shipType, x, y, orientation);
+
+    if (!placement) return null;
+
+    const placedShip = Ship(placement.shipLength);
+    placement.cells.forEach((cell) => {
       cell.setToken("S");
       shipByCell.set(cell, placedShip);
     });
     ships.push(placedShip);
+    shipPlacements.push({
+      cells: placement.cells.map((cell) => cell.getIndices()),
+      length: placement.shipLength,
+      orientation: placement.direction,
+      ship: placedShip,
+      type: placement.normalizedType,
+    });
 
     return placedShip;
+  };
+
+  const getShipPlacements = () => {
+    return shipPlacements.map(({ cells, length, orientation, ship, type }) => ({
+      cells: cells.map((cell) => ({ ...cell })),
+      length,
+      orientation,
+      sunk: ship.isSunk(),
+      type,
+    }));
   };
 
   const receiveAttack = (x, y) => {
@@ -153,9 +200,11 @@ const Gameboard = () => {
 
   return {
     allShipsSunk,
+    canPlaceShip,
     create,
     getBoard,
     getMissedAttacks,
+    getShipPlacements,
     placeShip,
     receiveAttack,
     reset,

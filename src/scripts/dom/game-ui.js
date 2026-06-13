@@ -1,10 +1,31 @@
+import battleshipSprite from "../../images/ships/battleship.png";
+import carrierSprite from "../../images/ships/carrier.png";
+import cruiserSprite from "../../images/ships/cruiser.png";
+import destroyerSprite from "../../images/ships/destroyer.png";
+import submarineSprite from "../../images/ships/submarine.png";
+
 const COLUMNS = "ABCDEFGHIJ";
 const SHIPS = [
-  { label: "Carrier", length: 5, type: "carrier" },
-  { label: "Battleship", length: 4, type: "battleship" },
-  { label: "Cruiser", length: 3, type: "cruiser" },
-  { label: "Submarine", length: 3, type: "submarine" },
-  { label: "Destroyer", length: 2, type: "destroyer" },
+  { label: "Carrier", length: 5, sprite: carrierSprite, type: "carrier" },
+  {
+    label: "Battleship",
+    length: 4,
+    sprite: battleshipSprite,
+    type: "battleship",
+  },
+  { label: "Cruiser", length: 3, sprite: cruiserSprite, type: "cruiser" },
+  {
+    label: "Submarine",
+    length: 3,
+    sprite: submarineSprite,
+    type: "submarine",
+  },
+  {
+    label: "Destroyer",
+    length: 2,
+    sprite: destroyerSprite,
+    type: "destroyer",
+  },
 ];
 
 const createElement = (tagName, className, text) => {
@@ -53,10 +74,21 @@ const createPlacementControls = () => {
   const shipSelector = createElement("div", "ship-selector");
   const orientation = createElement("div", "orientation-control");
   const actions = createElement("div", "placement-actions");
-  const shipButtons = SHIPS.map(({ label, length, type }) => {
-    const button = createButton("ship-option", `${label} · ${length}`);
+  const shipButtons = SHIPS.map(({ label, length, sprite, type }) => {
+    const button = createButton("ship-option");
+    const image = createElement("img", "ship-option-sprite");
+    const copy = createElement(
+      "span",
+      "ship-option-label",
+      `${label} · ${length}`,
+    );
+
+    image.src = sprite;
+    image.alt = "";
+    image.draggable = false;
     button.dataset.ship = type;
     button.draggable = true;
+    button.append(image, copy);
     shipSelector.append(button);
     return button;
   });
@@ -105,6 +137,18 @@ const createHandoffPanel = () => {
   return { button, panel, title };
 };
 
+const createGameOverPanel = () => {
+  const panel = createElement("section", "game-over");
+  const eyebrow = createElement("p", "game-over-eyebrow", "Battle complete");
+  const title = createElement("h2", "game-over-title");
+  const detail = createElement("p", "game-over-detail");
+  const button = createButton("confirm-action game-over-action", "Play again");
+
+  panel.append(eyebrow, title, detail, button);
+
+  return { button, detail, panel, title };
+};
+
 const getCellLabel = (cell, token, hideShips) => {
   const { row, column } = cell.getIndices();
   const visibleToken = hideShips && token === "S" ? "O" : token;
@@ -116,6 +160,37 @@ const getCellLabel = (cell, token, hideShips) => {
   };
 
   return `${column}${row}: ${states[visibleToken]}`;
+};
+
+const createShipSprite = (placement) => {
+  const ship = SHIPS.find(({ type }) => type === placement.type);
+
+  if (!ship) return null;
+
+  const sprite = createElement(
+    "span",
+    `ship-sprite ship-${placement.type} is-${placement.orientation}`,
+  );
+  const image = createElement("img", "ship-sprite-image");
+  const start = placement.cells[0];
+  const column = COLUMNS.indexOf(start.column) + 1;
+  const row = start.row;
+
+  sprite.style.setProperty("--ship-length", String(placement.length));
+  sprite.style.gridColumn = `${column} / span ${
+    placement.orientation === "horizontal" ? placement.length : 1
+  }`;
+  sprite.style.gridRow = `${row} / span ${
+    placement.orientation === "vertical" ? placement.length : 1
+  }`;
+  sprite.classList.toggle("is-sunk", placement.sunk);
+  sprite.setAttribute("aria-hidden", "true");
+  image.src = ship.sprite;
+  image.alt = "";
+  image.draggable = false;
+  sprite.append(image);
+
+  return sprite;
 };
 
 const renderBoard = (grid, gameboard, options = {}) => {
@@ -162,6 +237,17 @@ const renderBoard = (grid, gameboard, options = {}) => {
       fragment.append(element);
     });
   });
+
+  if (!hideShips) {
+    const shipLayer = createElement("div", "ship-layer");
+
+    gameboard.getShipPlacements().forEach((placement) => {
+      const sprite = createShipSprite(placement);
+      if (sprite) shipLayer.append(sprite);
+    });
+
+    fragment.append(shipLayer);
+  }
 
   grid.replaceChildren(fragment);
   grid.classList.toggle("is-disabled", disabled);
@@ -273,6 +359,7 @@ const GameUI = (root) => {
   const endTurnButton = createButton("turn-action", "End turn");
   const placementControls = createPlacementControls();
   const handoff = createHandoffPanel();
+  const gameOver = createGameOverPanel();
   const boards = createElement("div", "boards");
   const playerBoard = createBoardShell("Your fleet", "player");
   const enemyBoard = createBoardShell("Enemy waters", "enemy");
@@ -280,7 +367,8 @@ const GameUI = (root) => {
   let selectedShip = "carrier";
   let selectedOrientation = "horizontal";
   let placementFeedback = "";
-  let dropTarget;
+  let dropTargets = [];
+  let placementValidator = () => true;
 
   statusBar.setAttribute("aria-live", "polite");
   turnLight.setAttribute("aria-hidden", "true");
@@ -291,7 +379,14 @@ const GameUI = (root) => {
   statusCopy.append(statusTitle, statusDetail);
   statusBar.append(turnLight, statusCopy, endTurnButton);
   boards.append(playerBoard.section, enemyBoard.section);
-  app.append(header, statusBar, placementControls.panel, handoff.panel, boards);
+  app.append(
+    header,
+    statusBar,
+    placementControls.panel,
+    handoff.panel,
+    gameOver.panel,
+    boards,
+  );
   root.replaceChildren(app);
 
   const render = (state) => {
@@ -304,6 +399,7 @@ const GameUI = (root) => {
     const isPlacement = state.phase === "placement";
     const isHandoff = state.phase === "handoff";
     const isTurnResult = state.phase === "turn-result";
+    const isFinished = state.phase === "finished";
     const isEnemyBoardDisabled =
       state.phase !== "battle" || state.activePlayerType !== "real";
     const status = getStatus(state, selectedShip, placementFeedback);
@@ -316,9 +412,13 @@ const GameUI = (root) => {
     statusTitle.textContent = status.title;
     statusDetail.textContent = status.detail;
     turnLight.className = `turn-light turn-${turnState}`;
+    statusBar.hidden = isFinished;
     placementControls.panel.hidden = !isPlacement;
     handoff.panel.hidden = !isHandoff;
-    handoff.title.textContent = `Pass to ${state.handoffPlayerLabel}`;
+    gameOver.panel.hidden = !isFinished;
+    handoff.title.textContent = state.handoffPlayerLabel
+      ? `Pass to ${state.handoffPlayerLabel}`
+      : "";
     endTurnButton.hidden = !isTurnResult;
     boards.hidden = isHandoff;
     enemyBoard.section.hidden = isPlacement;
@@ -332,6 +432,21 @@ const GameUI = (root) => {
         ? "Enemy waters"
         : `${state.opponentPlayerLabel} waters`;
     boards.classList.toggle("is-placement", isPlacement);
+    boards.classList.toggle("is-game-over", isFinished);
+
+    if (isFinished) {
+      gameOver.title.textContent =
+        state.mode === "computer"
+          ? state.winnerIndex === 0
+            ? "Victory"
+            : "Defeat"
+          : `${state.winner} wins`;
+      gameOver.detail.textContent =
+        state.winnerIndex === state.currentPlayerIndex
+          ? "The opposing fleet has been destroyed."
+          : `${state.winner} destroyed the opposing fleet.`;
+    }
+
     modeControl.buttons.forEach((button) => {
       const isActive = button.dataset.mode === state.mode;
       button.classList.toggle("is-active", isActive);
@@ -373,9 +488,45 @@ const GameUI = (root) => {
   };
 
   const clearDropTarget = () => {
-    dropTarget?.classList.remove("is-drop-target");
-    dropTarget = null;
-    playerBoard.grid.classList.remove("is-drop-active");
+    dropTargets.forEach((cell) => cell.classList.remove("is-drop-target"));
+    dropTargets = [];
+    playerBoard.grid.classList.remove(
+      "is-drop-active",
+      "is-drop-invalid",
+      "is-drop-valid",
+    );
+  };
+
+  const showDropTarget = (cell) => {
+    clearDropTarget();
+
+    const x = Number(cell.dataset.x);
+    const y = Number(cell.dataset.y);
+    const ship = SHIPS.find(({ type }) => type === selectedShip);
+
+    if (!ship) return;
+
+    dropTargets = Array.from({ length: ship.length }, (_, index) => {
+      const cellX = selectedOrientation === "horizontal" ? x + index : x;
+      const cellY = selectedOrientation === "vertical" ? y + index : y;
+
+      return playerBoard.grid.querySelector(
+        `.board-cell[data-x="${cellX}"][data-y="${cellY}"]`,
+      );
+    }).filter(Boolean);
+
+    dropTargets.forEach((target) => target.classList.add("is-drop-target"));
+    const isValid = placementValidator({
+      orientation: selectedOrientation,
+      shipType: selectedShip,
+      x,
+      y,
+    });
+
+    playerBoard.grid.classList.add(
+      "is-drop-active",
+      isValid ? "is-drop-valid" : "is-drop-invalid",
+    );
   };
 
   placementControls.shipButtons.forEach((button) => {
@@ -394,8 +545,10 @@ const GameUI = (root) => {
       selectedShip = button.dataset.ship;
       placementFeedback = "";
       button.classList.add("is-dragging");
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", selectedShip);
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", selectedShip);
+      }
       render(latestState);
     });
 
@@ -438,14 +591,8 @@ const GameUI = (root) => {
       }
 
       event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      playerBoard.grid.classList.add("is-drop-active");
-
-      if (cell !== dropTarget) {
-        dropTarget?.classList.remove("is-drop-target");
-        dropTarget = cell;
-        dropTarget.classList.add("is-drop-target");
-      }
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      showDropTarget(cell);
     });
 
     playerBoard.grid.addEventListener("dragleave", (event) => {
@@ -456,7 +603,8 @@ const GameUI = (root) => {
 
     playerBoard.grid.addEventListener("drop", (event) => {
       const cell = event.target.closest(".board-cell");
-      const shipType = event.dataTransfer.getData("text/plain") || selectedShip;
+      const shipType =
+        event.dataTransfer?.getData("text/plain") || selectedShip;
 
       if (latestState?.phase !== "placement" || !cell || !shipType) return;
 
@@ -488,6 +636,10 @@ const GameUI = (root) => {
     placementControls.randomizeButton.addEventListener("click", randomize);
   };
 
+  const setPlacementValidator = (handler) => {
+    placementValidator = handler;
+  };
+
   const onModeChange = (handler) => {
     modeControl.buttons.forEach((button) => {
       button.addEventListener("click", () => handler(button.dataset.mode));
@@ -504,6 +656,7 @@ const GameUI = (root) => {
 
   const onRestart = (handler) => {
     restartButton.addEventListener("click", handler);
+    gameOver.button.addEventListener("click", handler);
   };
 
   return {
@@ -517,6 +670,7 @@ const GameUI = (root) => {
     render,
     resetPlacementControls,
     setPlacementFeedback,
+    setPlacementValidator,
   };
 };
 

@@ -154,6 +154,19 @@ const Game = (random = Math.random) => {
     return true;
   };
 
+  const canPlacePlayerShip = (shipType, x, y, orientation) => {
+    if (
+      phase !== "placement" ||
+      !remainingShipsByPlayer[placementPlayerIndex].includes(shipType)
+    ) {
+      return false;
+    }
+
+    return players[placementPlayerIndex]
+      .getGameboard()
+      .canPlaceShip(shipType, x, y, orientation);
+  };
+
   const clearPlayerFleet = () => {
     if (phase !== "placement") return false;
 
@@ -344,6 +357,7 @@ const Game = (random = Math.random) => {
 
   return {
     attackOpponent,
+    canPlacePlayerShip,
     clearPlayerFleet,
     computerAttack,
     confirmPlacement,

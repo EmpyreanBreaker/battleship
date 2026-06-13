@@ -100,6 +100,54 @@ describe("Gameboard", () => {
     expect(board[3][3].getToken()).toBe("O");
   });
 
+  test.each([
+    [3, 2, "horizontal"],
+    [2, 2, "horizontal"],
+    [6, 2, "vertical"],
+  ])(
+    "rejects ships placed directly or diagonally beside another ship",
+    (x, y, orientation) => {
+      const board = gameboard.create();
+      gameboard.placeShip("cruiser", 3, 3, "horizontal");
+
+      expect(gameboard.placeShip("destroyer", x, y, orientation)).toBeNull();
+      expect(
+        board.flat().filter((cell) => cell.getToken() === "S"),
+      ).toHaveLength(3);
+    },
+  );
+
+  test("allows placement when ships have one full cell of separation", () => {
+    gameboard.create();
+    gameboard.placeShip("cruiser", 3, 3, "horizontal");
+
+    expect(gameboard.canPlaceShip("destroyer", 3, 5, "horizontal")).toBe(true);
+    expect(gameboard.placeShip("destroyer", 3, 5, "horizontal")).not.toBeNull();
+  });
+
+  test("reports ship placement details without exposing mutable coordinates", () => {
+    gameboard.create();
+    gameboard.placeShip("battleship", 2, 3, "vertical");
+
+    const placements = gameboard.getShipPlacements();
+    placements[0].cells[0].row = 10;
+
+    expect(gameboard.getShipPlacements()).toEqual([
+      {
+        cells: [
+          { column: "B", row: 3 },
+          { column: "B", row: 4 },
+          { column: "B", row: 5 },
+          { column: "B", row: 6 },
+        ],
+        length: 4,
+        orientation: "vertical",
+        sunk: false,
+        type: "battleship",
+      },
+    ]);
+  });
+
   test("rejects a placement over a recorded miss", () => {
     const board = gameboard.create();
     board[0][1].setToken("M");
@@ -201,6 +249,10 @@ describe("Gameboard", () => {
     gameboard.receiveAttack(5, 6);
     gameboard.receiveAttack(5, 7);
     expect(gameboard.allShipsSunk()).toBe(true);
+    expect(gameboard.getShipPlacements().map(({ sunk }) => sunk)).toEqual([
+      true,
+      true,
+    ]);
   });
 
   test("resets the board with fresh cells", () => {
@@ -216,6 +268,7 @@ describe("Gameboard", () => {
       true,
     );
     expect(gameboard.getMissedAttacks()).toEqual([]);
+    expect(gameboard.getShipPlacements()).toEqual([]);
     expect(gameboard.allShipsSunk()).toBe(false);
   });
 });

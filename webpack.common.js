@@ -41,6 +41,13 @@ export default {
           filename: "fonts/[name][ext]",
         },
       },
+      {
+        test: /\.(png|jpe?g|webp)$/i,
+        type: "asset/resource",
+        generator: {
+          filename: "images/[name][ext]",
+        },
+      },
     ],
   },
 };
