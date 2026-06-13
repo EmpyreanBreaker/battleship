@@ -162,13 +162,13 @@ const getCellLabel = (cell, token, hideShips) => {
   return `${column}${row}: ${states[visibleToken]}`;
 };
 
-const createShipSprite = (placement) => {
+const createShipSprite = (placement, rotatable) => {
   const ship = SHIPS.find(({ type }) => type === placement.type);
 
   if (!ship) return null;
 
   const sprite = createElement(
-    "span",
+    rotatable ? "button" : "span",
     `ship-sprite ship-${placement.type} is-${placement.orientation}`,
   );
   const image = createElement("img", "ship-sprite-image");
@@ -184,7 +184,15 @@ const createShipSprite = (placement) => {
     placement.orientation === "vertical" ? placement.length : 1
   }`;
   sprite.classList.toggle("is-sunk", placement.sunk);
-  sprite.setAttribute("aria-hidden", "true");
+  sprite.dataset.ship = placement.type;
+  if (rotatable) {
+    sprite.type = "button";
+    sprite.classList.add("is-rotatable");
+    sprite.setAttribute("aria-label", `Rotate ${ship.label}`);
+    sprite.title = `Rotate ${ship.label}`;
+  } else {
+    sprite.setAttribute("aria-hidden", "true");
+  }
   image.src = ship.sprite;
   image.alt = "";
   image.draggable = false;
@@ -194,7 +202,12 @@ const createShipSprite = (placement) => {
 };
 
 const renderBoard = (grid, gameboard, options = {}) => {
-  const { disabled = false, hideShips = false, interactive = false } = options;
+  const {
+    disabled = false,
+    hideShips = false,
+    interactive = false,
+    rotatableShips = false,
+  } = options;
   const board = gameboard.getBoard();
   const fragment = document.createDocumentFragment();
 
@@ -242,7 +255,7 @@ const renderBoard = (grid, gameboard, options = {}) => {
     const shipLayer = createElement("div", "ship-layer");
 
     gameboard.getShipPlacements().forEach((placement) => {
-      const sprite = createShipSprite(placement);
+      const sprite = createShipSprite(placement, rotatableShips);
       if (sprite) shipLayer.append(sprite);
     });
 
@@ -468,6 +481,7 @@ const GameUI = (root) => {
     } else {
       renderBoard(playerBoard.grid, state.currentPlayer.getGameboard(), {
         interactive: isPlacement && Boolean(selectedShip),
+        rotatableShips: isPlacement,
       });
       renderBoard(enemyBoard.grid, state.opponentPlayer.getGameboard(), {
         disabled: isEnemyBoardDisabled,
@@ -630,6 +644,16 @@ const GameUI = (root) => {
     });
   };
 
+  const onPlayerShipRotate = (handler) => {
+    playerBoard.grid.addEventListener("click", (event) => {
+      const ship = event.target.closest(".ship-sprite.is-rotatable");
+
+      if (latestState?.phase !== "placement" || !ship) return;
+
+      handler(ship.dataset.ship);
+    });
+  };
+
   const onPlacementActions = ({ clear, confirm, randomize }) => {
     placementControls.clearButton.addEventListener("click", clear);
     placementControls.confirmButton.addEventListener("click", confirm);
@@ -666,6 +690,7 @@ const GameUI = (root) => {
     onModeChange,
     onPlacementActions,
     onPlayerPlacement,
+    onPlayerShipRotate,
     onRestart,
     render,
     resetPlacementControls,

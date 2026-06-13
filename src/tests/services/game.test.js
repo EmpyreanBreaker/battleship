@@ -88,6 +88,27 @@ describe("Game against the computer", () => {
     expect(game.getState().remainingShips).toEqual(FLEET);
   });
 
+  test("rotates a placed player ship only during deployment", () => {
+    expect(game.placePlayerShip("destroyer", 2, 3, "horizontal")).toBe(true);
+    expect(game.rotatePlayerShip("destroyer")).toBe(true);
+    expect(
+      game.getState().realPlayer.getGameboard().getShipPlacements()[0],
+    ).toEqual(
+      expect.objectContaining({
+        cells: [
+          { column: "B", row: 3 },
+          { column: "B", row: 4 },
+        ],
+        orientation: "vertical",
+      }),
+    );
+
+    game.randomizePlayerFleet();
+    game.confirmPlacement();
+
+    expect(game.rotatePlayerShip("destroyer")).toBe(false);
+  });
+
   test("requires confirmation before alternating computer turns", () => {
     expect(game.confirmPlacement()).toBe(false);
     expect(game.attackOpponent(1, 1)).toBeNull();

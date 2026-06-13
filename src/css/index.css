@@ -135,6 +135,11 @@ button {
   outline-offset: 2px;
 }
 
+.ship-sprite:focus-visible {
+  outline: 3px solid #f2c66d;
+  outline-offset: -2px;
+}
+
 .status-bar {
   display: flex;
   align-items: center;
@@ -492,6 +497,19 @@ button {
   padding: 3px;
   place-items: center;
   pointer-events: none;
+}
+
+.ship-sprite.is-rotatable {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ship-sprite.is-rotatable:hover .ship-sprite-image,
+.ship-sprite.is-rotatable:focus-visible .ship-sprite-image {
+  filter: drop-shadow(0 0 4px rgba(111, 211, 198, 0.9))
+    drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55));
 }
 
 .ship-sprite-image {

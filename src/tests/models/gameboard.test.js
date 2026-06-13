@@ -148,6 +148,69 @@ describe("Gameboard", () => {
     ]);
   });
 
+  test("rotates a placed ship around its starting cell", () => {
+    const board = gameboard.create();
+    const destroyer = gameboard.placeShip("destroyer", 2, 3, "horizontal");
+
+    expect(gameboard.rotateShip("destroyer")).toBe(true);
+    expect(gameboard.getShipPlacements()[0]).toEqual({
+      cells: [
+        { column: "B", row: 3 },
+        { column: "B", row: 4 },
+      ],
+      length: 2,
+      orientation: "vertical",
+      sunk: false,
+      type: "destroyer",
+    });
+    expect(board[2][1].getToken()).toBe("S");
+    expect(board[2][2].getToken()).toBe("O");
+    expect(board[3][1].getToken()).toBe("S");
+
+    gameboard.receiveAttack(2, 4);
+    expect(destroyer.getData().hits).toBe(1);
+  });
+
+  test("toggles a ship between vertical and horizontal orientations", () => {
+    gameboard.create();
+    gameboard.placeShip("destroyer", 2, 3, "horizontal");
+
+    expect(gameboard.rotateShip("destroyer")).toBe(true);
+    expect(gameboard.rotateShip("destroyer")).toBe(true);
+    expect(gameboard.getShipPlacements()[0]).toEqual(
+      expect.objectContaining({
+        cells: [
+          { column: "B", row: 3 },
+          { column: "C", row: 3 },
+        ],
+        orientation: "horizontal",
+      }),
+    );
+  });
+
+  test("restores a ship when rotation would extend beyond the board", () => {
+    const board = gameboard.create();
+    gameboard.placeShip("destroyer", 1, 10, "horizontal");
+
+    expect(gameboard.rotateShip("destroyer")).toBe(false);
+    expect(gameboard.getShipPlacements()[0].orientation).toBe("horizontal");
+    expect(board[9][0].getToken()).toBe("S");
+    expect(board[9][1].getToken()).toBe("S");
+  });
+
+  test("restores a ship when rotation violates fleet spacing", () => {
+    const board = gameboard.create();
+    gameboard.placeShip("cruiser", 3, 3, "horizontal");
+    gameboard.placeShip("destroyer", 1, 5, "horizontal");
+
+    expect(gameboard.rotateShip("cruiser")).toBe(false);
+    expect(gameboard.getShipPlacements()[0].orientation).toBe("horizontal");
+    expect(board[2].slice(2, 5).every((cell) => cell.getToken() === "S")).toBe(
+      true,
+    );
+    expect(board[3][2].getToken()).toBe("O");
+  });
+
   test("rejects a placement over a recorded miss", () => {
     const board = gameboard.create();
     board[0][1].setToken("M");

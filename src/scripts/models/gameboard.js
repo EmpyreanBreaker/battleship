@@ -156,6 +156,59 @@ const Gameboard = () => {
     return placedShip;
   };
 
+  const updatePlacementCells = (placement, cells) => {
+    cells.forEach((cell) => {
+      cell.setToken("S");
+      shipByCell.set(cell, placement.ship);
+    });
+    placement.cells = cells.map((cell) => cell.getIndices());
+  };
+
+  const clearPlacementCells = (placement) => {
+    placement.cells.forEach(({ column, row }) => {
+      const cell = gameBoard[row - 1][COLUMNS.indexOf(column)];
+      cell.setToken("O");
+      shipByCell.delete(cell);
+    });
+  };
+
+  const rotateShip = (shipType) => {
+    const normalizedType = normalizeShipType(shipType);
+    const placement = shipPlacements.find(
+      ({ type }) => type === normalizedType,
+    );
+
+    if (!placement) return false;
+
+    const originalCells = placement.cells.map(({ column, row }) => {
+      return gameBoard[row - 1][COLUMNS.indexOf(column)];
+    });
+
+    if (originalCells.some((cell) => cell.getToken() !== "S")) return false;
+
+    const originalOrientation = placement.orientation;
+    const nextOrientation =
+      originalOrientation === "horizontal" ? "vertical" : "horizontal";
+    const start = placement.cells[0];
+
+    clearPlacementCells(placement);
+    const rotatedPlacement = getValidPlacement(
+      placement.type,
+      start.column,
+      start.row,
+      nextOrientation,
+    );
+
+    if (!rotatedPlacement) {
+      updatePlacementCells(placement, originalCells);
+      return false;
+    }
+
+    updatePlacementCells(placement, rotatedPlacement.cells);
+    placement.orientation = nextOrientation;
+    return true;
+  };
+
   const getShipPlacements = () => {
     return shipPlacements.map(({ cells, length, orientation, ship, type }) => ({
       cells: cells.map((cell) => ({ ...cell })),
@@ -208,6 +261,7 @@ const Gameboard = () => {
     placeShip,
     receiveAttack,
     reset,
+    rotateShip,
   };
 };
 

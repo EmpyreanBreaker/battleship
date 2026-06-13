@@ -40,6 +40,17 @@ ui.onPlayerPlacement(({ orientation, shipType, x, y }) => {
   render();
 });
 
+ui.onPlayerShipRotate((shipType) => {
+  const rotated = game.rotatePlayerShip(shipType);
+
+  ui.setPlacementFeedback(
+    rotated
+      ? ""
+      : "That ship cannot rotate here while keeping the required clearance",
+  );
+  render();
+});
+
 ui.onPlacementActions({
   clear: () => {
     game.clearPlayerFleet();

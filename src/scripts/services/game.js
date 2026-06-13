@@ -167,6 +167,12 @@ const Game = (random = Math.random) => {
       .canPlaceShip(shipType, x, y, orientation);
   };
 
+  const rotatePlayerShip = (shipType) => {
+    if (phase !== "placement") return false;
+
+    return players[placementPlayerIndex].getGameboard().rotateShip(shipType);
+  };
+
   const clearPlayerFleet = () => {
     if (phase !== "placement") return false;
 
@@ -366,6 +372,7 @@ const Game = (random = Math.random) => {
     getState,
     placePlayerShip,
     randomizePlayerFleet,
+    rotatePlayerShip,
     start,
   };
 };
