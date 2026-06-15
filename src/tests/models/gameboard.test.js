@@ -241,6 +241,32 @@ describe("Gameboard", () => {
     expect(board[2][1].getToken()).toBe("X");
   });
 
+  test("marks adjacent open water invalid after a hit", () => {
+    const board = gameboard.create();
+    gameboard.placeShip("destroyer", 1, 1, "horizontal");
+
+    expect(gameboard.receiveAttack(1, 1)).toBe(true);
+
+    expect(board[0][0].getToken()).toBe("X");
+    expect(board[0][1].getToken()).toBe("S");
+    expect(board[1][0].getToken()).toBe("M");
+    expect(board[1][1].getToken()).toBe("M");
+    expect(gameboard.getMissedAttacks()).toEqual([]);
+  });
+
+  test("keeps same-ship adjacent cells attackable after a hit", () => {
+    const board = gameboard.create();
+    gameboard.placeShip("destroyer", 1, 1, "vertical");
+
+    expect(gameboard.receiveAttack(1, 1)).toBe(true);
+
+    expect(board[0][0].getToken()).toBe("X");
+    expect(board[1][0].getToken()).toBe("S");
+    expect(board[0][1].getToken()).toBe("M");
+    expect(board[1][1].getToken()).toBe("M");
+    expect(gameboard.receiveAttack(1, 2)).toBe(true);
+  });
+
   test("sends hits to the correct ship", () => {
     gameboard.create();
     const destroyer = gameboard.placeShip("destroyer", 1, 1, "horizontal");

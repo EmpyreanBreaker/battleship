@@ -304,27 +304,34 @@ const Game = (random = Math.random) => {
       return null;
     }
 
-    const coordinates = getNextComputerTarget();
+    let coordinates = getNextComputerTarget();
 
-    if (!coordinates) return null;
+    while (coordinates) {
+      computerAttackedCoordinates.add(getCoordinateKey(coordinates));
+      const result = players[0]
+        .getGameboard()
+        .receiveAttack(coordinates.x, coordinates.y);
 
-    computerAttackedCoordinates.add(getCoordinateKey(coordinates));
-    const result = players[0]
-      .getGameboard()
-      .receiveAttack(coordinates.x, coordinates.y);
+      if (result === null) {
+        coordinates = getNextComputerTarget();
+        continue;
+      }
 
-    lastAttackResult = result;
+      lastAttackResult = result;
 
-    if (result) queueAdjacentTargets(coordinates);
+      if (result) queueAdjacentTargets(coordinates);
 
-    if (players[0].getGameboard().allShipsSunk()) {
-      winnerIndex = 1;
-      phase = "finished";
-    } else {
-      activePlayerIndex = 0;
+      if (players[0].getGameboard().allShipsSunk()) {
+        winnerIndex = 1;
+        phase = "finished";
+      } else {
+        activePlayerIndex = 0;
+      }
+
+      return { ...coordinates, result };
     }
 
-    return { ...coordinates, result };
+    return null;
   };
 
   const getState = () => {

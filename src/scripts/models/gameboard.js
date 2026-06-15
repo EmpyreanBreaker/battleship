@@ -54,18 +54,29 @@ const getPlacementCells = (board, length, xIndex, yIndex, orientation) => {
   });
 };
 
+const getCoordinateKey = ({ column, row }) => `${column},${row}`;
+
+const getAdjacentCells = (board, xIndex, yIndex) => {
+  const adjacentCells = [];
+
+  for (let y = yIndex - 1; y <= yIndex + 1; y++) {
+    for (let x = xIndex - 1; x <= xIndex + 1; x++) {
+      if (x === xIndex && y === yIndex) continue;
+      if (board[y]?.[x]) adjacentCells.push(board[y][x]);
+    }
+  }
+
+  return adjacentCells;
+};
+
 const hasAdjacentShip = (board, cell) => {
   const { column, row } = cell.getIndices();
   const xIndex = COLUMNS.indexOf(column);
   const yIndex = row - 1;
 
-  for (let y = yIndex - 1; y <= yIndex + 1; y++) {
-    for (let x = xIndex - 1; x <= xIndex + 1; x++) {
-      if (board[y]?.[x]?.getToken() === "S") return true;
-    }
-  }
-
-  return false;
+  return getAdjacentCells(board, xIndex, yIndex).some(
+    (adjacentCell) => adjacentCell.getToken() === "S",
+  );
 };
 
 const areCellsAvailable = (board, cells) => {
@@ -219,6 +230,26 @@ const Gameboard = () => {
     }));
   };
 
+  const markInvalidAdjacentTargets = (cell, ship) => {
+    const placement = shipPlacements.find(
+      ({ ship: placedShip }) => placedShip === ship,
+    );
+    const shipCells = new Set(placement?.cells.map(getCoordinateKey));
+    const { column, row } = cell.getIndices();
+    const xIndex = COLUMNS.indexOf(column);
+    const yIndex = row - 1;
+
+    getAdjacentCells(gameBoard, xIndex, yIndex).forEach((adjacentCell) => {
+      const isSameShip = shipCells.has(
+        getCoordinateKey(adjacentCell.getIndices()),
+      );
+
+      if (!isSameShip && adjacentCell.getToken() === "O") {
+        adjacentCell.setToken("M");
+      }
+    });
+  };
+
   const receiveAttack = (x, y) => {
     const position = getBoardPosition(x, y);
 
@@ -231,8 +262,11 @@ const Gameboard = () => {
     if (token === "X" || token === "M") return null;
 
     if (token === "S") {
-      shipByCell.get(cell).hit();
+      const ship = shipByCell.get(cell);
+
+      ship.hit();
       cell.setToken("X");
+      markInvalidAdjacentTargets(cell, ship);
       return true;
     }
 

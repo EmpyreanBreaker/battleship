@@ -162,6 +162,14 @@ describe("Game against the computer", () => {
 
     expect(distance).toBe(1);
     expect(adjacentAttack).toEqual({ result: true, x: 2, y: 1 });
+
+    const nextPlayerTarget = computerBoard
+      .flat()
+      .find((cell) => cell.getToken() === "O")
+      .getIndices();
+
+    game.attackOpponent(nextPlayerTarget.column, nextPlayerTarget.row);
+    expect(game.computerAttack()).toEqual({ result: true, x: 3, y: 1 });
   });
 
   test("plays through a complete game until the real player wins", () => {
